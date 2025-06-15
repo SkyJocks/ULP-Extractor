@@ -2,6 +2,7 @@
 name = "ULP Extractor"
 version = "0.1.0"
 edition = "2021"
+description = "A fast, multithreaded credential extractor with advanced filtering and GUI, supporting large files."
 
 [dependencies]
 regex = "1"

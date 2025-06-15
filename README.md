@@ -1,59 +1,46 @@
-# Rust URL Credential Extractor
+# ULP Extractor
 
-This project is a Rust application that extracts lines in the format `url:credential:password` from text files located in a specified folder. It filters these lines based on a keyword provided by the user and saves the results to an output text file. The application utilizes threads to improve performance.
+**ULP Extractor** is a fast, multithreaded Rust application with a graphical interface for extracting and filtering credentials (email:pass, user:pass, num:pass) from large text files or folders. It supports advanced filtering, deduplication, and efficient processing of both small and very large files.
 
 ## Features
 
-- Extracts lines in the format `url:credential:password`.
-- Filters extracted lines based on a user-defined keyword.
-- Saves the filtered results to an output text file.
-- Utilizes multithreading for improved speed and efficiency.
+- Extracts credentials in formats: `email:pass`, `user:pass`, `num:pass`
+- Advanced filters: only emails, only numeric users, only alphanumeric users
+- Minimum length sliders for numeric user and password
+- Deduplication of results
+- Multithreaded for high performance (handles hundreds of GB)
+- Modern GUI with dark/red gradient background
+- Preview of first results and unique result counter
+- Option to append or overwrite output file
 
 ## Getting Started
 
 ### Prerequisites
 
-- Rust installed on your machine. You can install Rust by following the instructions at [rust-lang.org](https://www.rust-lang.org/tools/install).
+- Windows 10/11 with up-to-date graphics drivers
+- [Rust toolchain](https://www.rust-lang.org/tools/install)
 
-### Installation
+### Build
 
-1. Clone the repository:
+```sh
+cargo build --release
+```
 
-   ```
-   git clone <repository-url>
-   cd rust-extractor
-   ```
-
-2. Build the project:
-
-   ```
-   cargo build
-   ```
+The executable will be at `target/release/ulp-extractor.exe`.
 
 ### Usage
 
-To run the extractor, use the following command:
+1. Run the executable.
+2. Select the input folder and output file.
+3. Set your filters and keywords.
+4. Click "Process" to extract and filter credentials.
+5. Copy or use the results as needed.
 
-```
-cargo run -- <input_folder> <keyword> <output_file>
-```
+### Notes
 
-- `<input_folder>`: The path to the folder containing the text files to be processed.
-- `<keyword>`: The keyword to filter the extracted lines.
-- `<output_file>`: The path to the output text file where the results will be saved.
-
-### Example
-
-```
-cargo run -- ./texts "my_keyword" ./output/results.txt
-```
-
-This command will process all text files in the `./texts` directory, filter lines containing "my_keyword", and save the results to `./output/results.txt`.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a pull request or open an issue for any suggestions or improvements.
+- For best performance, use the release build.
+- If you see an OpenGL or WGPU error, update your graphics drivers.
 
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for more details.
+This project is licensed under the MIT License.
