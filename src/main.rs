@@ -30,10 +30,14 @@ struct AppState {
     error_message: String,
     only_email: bool,
     only_numeric: bool,
-    only_user: bool, // Nuevo campo
+    only_user: bool,
     min_numeric_len: usize,
     min_pass_len: usize,
     total_results: usize,
+    only_rut: bool,
+    only_valid_rut: bool,
+    min_rut_len: usize,
+    max_rut_len: usize,
 }
 
 impl Default for AppState {
@@ -54,17 +58,21 @@ impl Default for AppState {
             error_message: String::new(),
             only_email: false,
             only_numeric: false,
-            only_user: false, // Nuevo campo
+            only_user: false,
             min_numeric_len: 6,
             min_pass_len: 6,
             total_results: 0,
+            only_rut: false,
+            only_valid_rut: false,
+            min_rut_len: 7,
+            max_rut_len: 8,
         }
     }
 }
 
 impl eframe::App for AppState {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Fondo negro
+        // Fondo negro y difuminado rojo oscuro
         let screen_rect = ctx.screen_rect();
         let painter = ctx.layer_painter(egui::LayerId::background());
         painter.rect_filled(
@@ -72,8 +80,6 @@ impl eframe::App for AppState {
             Rounding::same(0.0),
             egui::Color32::BLACK,
         );
-
-        // Difuminado rojo oscuro (simulado con un rectángulo semitransparente arriba)
         let height = screen_rect.height() * 0.4;
         let fade_rect = egui::Rect::from_min_max(
             screen_rect.left_top(),
@@ -82,7 +88,7 @@ impl eframe::App for AppState {
         painter.rect_filled(
             fade_rect,
             Rounding::same(0.0),
-            egui::Color32::from_rgba_unmultiplied(60, 0, 0, 120), // Rojo oscuro, semitransparente
+            egui::Color32::from_rgba_unmultiplied(60, 0, 0, 120),
         );
 
         let (lbl_select_dir, lbl_dir, lbl_select_out, lbl_out, lbl_keywords, lbl_extract, lbl_threads, lbl_process, lbl_ready, lbl_error, lbl_preview, lbl_append, lbl_copy, lbl_lang, lbl_files, _lbl_progress) = match self.idioma {
@@ -163,7 +169,17 @@ impl eframe::App for AppState {
             ui.checkbox(&mut self.append_mode, lbl_append);
             ui.checkbox(&mut self.only_email, "Solo email:pass");
             ui.checkbox(&mut self.only_numeric, "Solo num:pass");
-            ui.checkbox(&mut self.only_user, "Solo user:pass"); // Nuevo
+            ui.checkbox(&mut self.only_user, "Solo user:pass");
+            ui.checkbox(&mut self.only_rut, "Solo rut:pass");
+            if self.only_rut {
+                ui.checkbox(&mut self.only_valid_rut, "Solo RUTs con dígito verificador válido");
+                ui.horizontal(|ui| {
+                    ui.label("Mínimo largo de número:");
+                    ui.add(egui::Slider::new(&mut self.min_rut_len, 6..=8));
+                    ui.label("Máximo largo de número:");
+                    ui.add(egui::Slider::new(&mut self.max_rut_len, self.min_rut_len..=8));
+                });
+            }
 
             if self.only_numeric {
                 ui.horizontal(|ui| {
@@ -199,9 +215,13 @@ impl eframe::App for AppState {
                             self.append_mode,
                             self.only_email,
                             self.only_numeric,
-                            self.only_user, // Nuevo
+                            self.only_user,
+                            self.only_rut,
+                            self.only_valid_rut,
                             self.min_numeric_len,
                             self.min_pass_len,
+                            self.min_rut_len,
+                            self.max_rut_len,
                             |progress, processed, total| {
                                 self.progress = progress;
                                 self.processed_files = processed;
@@ -274,14 +294,17 @@ fn extract_line(line: &str, extract_after_colon: bool) -> Option<String> {
     }
 }
 
-// Validación avanzada: permite marcar uno, varios o todos los tipos
 fn is_valid_credential(
     s: &str,
     only_email: bool,
     only_numeric: bool,
     only_user: bool,
+    only_rut: bool,
+    only_valid_rut: bool,
     min_numeric_len: usize,
     min_pass_len: usize,
+    min_rut_len: usize,
+    max_rut_len: usize,
 ) -> bool {
     let parts: Vec<&str> = s.split(':').collect();
     if parts.len() < 2 {
@@ -297,15 +320,55 @@ fn is_valid_credential(
         && user.len() >= min_numeric_len
         && pass.len() >= min_pass_len;
     let is_user = user.chars().all(|c| c.is_ascii_alphanumeric()) && !is_email && !is_numeric;
+    let is_rut_user = is_rut(user, only_valid_rut, min_rut_len, max_rut_len);
 
-    // Si no se marca ninguna opción, acepta todos los tipos válidos
-    if !only_email && !only_numeric && !only_user {
-        return is_email || is_numeric || is_user;
+    if !only_email && !only_numeric && !only_user && !only_rut {
+        return is_email || is_numeric || is_user || is_rut_user;
     }
-    // Si se marca más de una opción, acepta cualquiera de las seleccionadas
-    (only_email && is_email) ||
-    (only_numeric && is_numeric) ||
-    (only_user && is_user)
+    (only_email && is_email)
+        || (only_numeric && is_numeric)
+        || (only_user && is_user)
+        || (only_rut && is_rut_user)
+}
+
+fn rut_dv(num: &str) -> Option<char> {
+    let mut sum = 0;
+    let mut mul = 2;
+    for c in num.chars().rev() {
+        if let Some(d) = c.to_digit(10) {
+            sum += d * mul;
+            mul = if mul == 7 { 2 } else { mul + 1 };
+        } else {
+            return None;
+        }
+    }
+    let res = 11 - (sum % 11);
+    Some(match res {
+        11 => '0',
+        10 => 'k',
+        x => std::char::from_digit(x, 10)?,
+    })
+}
+
+fn is_rut(
+    user: &str,
+    require_valid_dv: bool,
+    min_rut_len: usize,
+    max_rut_len: usize,
+) -> bool {
+    let parts: Vec<&str> = user.split('-').collect();
+    if parts.len() != 2 { return false; }
+    let (num, dv) = (parts[0], parts[1].to_ascii_lowercase());
+    if num.len() < min_rut_len || num.len() > max_rut_len { return false; }
+    if !num.chars().all(|c| c.is_ascii_digit()) { return false; }
+    if require_valid_dv {
+        if let Some(calc_dv) = rut_dv(num) {
+            return dv == calc_dv.to_string();
+        } else {
+            return false;
+        }
+    }
+    dv == "k" || dv.chars().all(|c| c.is_ascii_digit())
 }
 
 fn process_files<F>(
@@ -317,9 +380,13 @@ fn process_files<F>(
     append_mode: bool,
     only_email: bool,
     only_numeric: bool,
-    only_user: bool, // Nuevo
+    only_user: bool,
+    only_rut: bool,
+    only_valid_rut: bool,
     min_numeric_len: usize,
     min_pass_len: usize,
+    min_rut_len: usize,
+    max_rut_len: usize,
     mut progress_callback: F,
 ) -> io::Result<(Vec<String>, usize)>
 where
@@ -338,10 +405,10 @@ where
         .collect::<Vec<_>>();
 
     let total_files = paths.len();
-    let results = Arc::new(Mutex::new(Vec::new()));
     let (tx, rx) = mpsc::channel();
 
-    let chunk_size = (paths.len() + num_threads - 1) / num_threads;
+    let num_threads = num_threads.min(paths.len().max(1));
+    let chunk_size = ((paths.len() + num_threads - 1) / num_threads).max(1);
     let mut handles = vec![];
 
     for chunk in paths.chunks(chunk_size) {
@@ -352,18 +419,32 @@ where
         let only_email = only_email;
         let only_numeric = only_numeric;
         let only_user = only_user;
+        let only_rut = only_rut;
+        let only_valid_rut = only_valid_rut;
         let min_numeric_len = min_numeric_len;
         let min_pass_len = min_pass_len;
+        let min_rut_len = min_rut_len;
+        let max_rut_len = max_rut_len;
         let handle = thread::spawn(move || {
             for path in chunk {
-                let file = File::open(&path);
-                if let Ok(file) = file {
+                if let Ok(file) = File::open(&path) {
                     let reader = io::BufReader::new(file);
                     for line in reader.lines() {
                         if let Ok(line) = line {
                             if keywords.iter().any(|kw| line.contains(kw)) {
                                 if let Some(extracted) = extract_line(&line, extract_after_colon) {
-                                    if is_valid_credential(&extracted, only_email, only_numeric, only_user, min_numeric_len, min_pass_len) {
+                                    if is_valid_credential(
+                                        &extracted,
+                                        only_email,
+                                        only_numeric,
+                                        only_user,
+                                        only_rut,
+                                        only_valid_rut,
+                                        min_numeric_len,
+                                        min_pass_len,
+                                        min_rut_len,
+                                        max_rut_len,
+                                    ) {
                                         tx.send(extracted).unwrap();
                                     }
                                 }
@@ -378,13 +459,22 @@ where
 
     drop(tx);
 
-    let mut processed = 0;
+    // Escribe todas las líneas válidas al archivo de salida (pueden estar duplicadas)
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .append(append_mode)
+        .truncate(!append_mode)
+        .open(output_file)?;
+
     let mut preview = Vec::new();
+    let mut processed = 0;
+
     for received in rx {
+        writeln!(file, "{}", received)?;
         if preview.len() < 10 {
-            preview.push(received.clone());
+            preview.push(received);
         }
-        results.lock().unwrap().push(received);
         processed += 1;
         progress_callback(processed as f32 / total_files.max(1) as f32, processed, total_files);
     }
@@ -393,28 +483,28 @@ where
         handle.join().unwrap();
     }
 
-    let output = results.lock().unwrap();
+    // Deduplicar el archivo de salida al final
+    let file = File::open(output_file)?;
+    let reader = io::BufReader::new(file);
     let mut unique = HashSet::new();
     let mut deduped = Vec::new();
-    for line in output.iter() {
-        if unique.insert(line.clone()) {
-            deduped.push(line.clone());
+    for line in reader.lines() {
+        if let Ok(line) = line {
+            if unique.insert(line.clone()) {
+                deduped.push(line);
+            }
         }
     }
-    let total_results = deduped.len();
 
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .append(append_mode)
-        .truncate(!append_mode)
-        .open(output_file)?;
-
-    for line in deduped.iter() {
+    // Sobrescribe el archivo solo con los resultados únicos
+    let mut file = File::create(output_file)?;
+    for line in &deduped {
         writeln!(file, "{}", line)?;
     }
 
-    let preview: Vec<String> = deduped.iter().take(10).cloned().collect();
+    let total_results = deduped.len();
+    let preview = deduped.iter().take(10).cloned().collect();
+
     Ok((preview, total_results))
 }
 
