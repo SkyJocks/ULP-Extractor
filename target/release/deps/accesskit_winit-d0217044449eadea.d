@@ -1,0 +1,9 @@
+C:\Users\Administrator\Desktop\ORIENTADO A OBJETOS\rust-extractor\target\release\deps\libaccesskit_winit-d0217044449eadea.rmeta: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\accesskit_winit-0.16.1\src\lib.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\accesskit_winit-0.16.1\src\platform_impl\mod.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\accesskit_winit-0.16.1\src\platform_impl\windows.rs
+
+C:\Users\Administrator\Desktop\ORIENTADO A OBJETOS\rust-extractor\target\release\deps\libaccesskit_winit-d0217044449eadea.rlib: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\accesskit_winit-0.16.1\src\lib.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\accesskit_winit-0.16.1\src\platform_impl\mod.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\accesskit_winit-0.16.1\src\platform_impl\windows.rs
+
+C:\Users\Administrator\Desktop\ORIENTADO A OBJETOS\rust-extractor\target\release\deps\accesskit_winit-d0217044449eadea.d: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\accesskit_winit-0.16.1\src\lib.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\accesskit_winit-0.16.1\src\platform_impl\mod.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\accesskit_winit-0.16.1\src\platform_impl\windows.rs
+
+C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\accesskit_winit-0.16.1\src\lib.rs:
+C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\accesskit_winit-0.16.1\src\platform_impl\mod.rs:
+C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\accesskit_winit-0.16.1\src\platform_impl\windows.rs:

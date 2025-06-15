@@ -1,0 +1,11 @@
+[package]
+name = "ULP Extractor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+regex = "1"
+rayon = "1"
+rfd = "0.14"
+eframe = { version = "0.27", features = ["wgpu"] }
+num_cpus = "1.16"
