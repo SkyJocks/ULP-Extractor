@@ -38,6 +38,7 @@ struct AppState {
     only_valid_rut: bool,
     min_rut_len: usize,
     max_rut_len: usize,
+    
 }
 
 impl Default for AppState {
@@ -193,6 +194,11 @@ impl eframe::App for AppState {
             ui.add(egui::Slider::new(&mut self.num_threads, 1..=num_cpus::get())
                 .text(lbl_threads));
 
+            ui.horizontal(|ui| {
+                ui.label("Separador (elige uno: : | ; )");
+                ui.text_edit_singleline(&mut self.separator);
+            });
+
             if ui.button(lbl_process).clicked() {
                 self.result.clear();
                 self.error_message.clear();
@@ -286,16 +292,35 @@ impl eframe::App for AppState {
     }
 }
 
-fn extract_line(line: &str, extract_after_colon: bool) -> Option<String> {
-    if extract_after_colon {
-        line.splitn(2, ':').nth(1).map(|s| s.trim_start().to_string())
+fn detect_separator(line: &str) -> Option<&'static str> {
+    if line.contains(':') {
+        Some(":")
+    } else if line.contains('|') {
+        Some("|")
+    } else if line.contains(';') {
+        Some(";")
     } else {
-        Some(line.to_string())
+        None
+    }
+}
+
+fn extract_line(line: &str, extract_after_colon: bool) -> Option<String> {
+    let sep = detect_separator(line)?;
+    let parts: Vec<&str> = line.splitn(2, sep).collect();
+    if parts.len() < 2 {
+        return None;
+    }
+    let user = parts[0].trim();
+    let pass = parts[1].trim();
+    if extract_after_colon {
+        Some(pass.to_string())
+    } else {
+        Some(format!("{}:{}", user, pass)) // Siempre retorna user:pass
     }
 }
 
 fn is_valid_credential(
-    s: &str,
+    line: &str,
     only_email: bool,
     only_numeric: bool,
     only_user: bool,
@@ -306,7 +331,11 @@ fn is_valid_credential(
     min_rut_len: usize,
     max_rut_len: usize,
 ) -> bool {
-    let parts: Vec<&str> = s.split(':').collect();
+    let sep = match detect_separator(line) {
+        Some(s) => s,
+        None => return false,
+    };
+    let parts: Vec<&str> = line.splitn(2, sep).collect();
     if parts.len() < 2 {
         return false;
     }
@@ -356,10 +385,28 @@ fn is_rut(
     min_rut_len: usize,
     max_rut_len: usize,
 ) -> bool {
-    let parts: Vec<&str> = user.split('-').collect();
-    if parts.len() != 2 { return false; }
-    let (num, dv) = (parts[0], parts[1].to_ascii_lowercase());
-    if num.len() < min_rut_len || num.len() > max_rut_len { return false; }
+    // Si tiene guion, separar normalmente
+    if let Some(idx) = user.find('-') {
+        let (num, dv) = user.split_at(idx);
+        let dv = &dv[1..].to_ascii_lowercase();
+        if num.len() < min_rut_len || num.len() > max_rut_len { return false; }
+        if !num.chars().all(|c| c.is_ascii_digit()) { return false; }
+        if require_valid_dv {
+            if let Some(calc_dv) = rut_dv(num) {
+                return dv == calc_dv.to_string();
+            } else {
+                return false;
+            }
+        }
+        return dv == "k" || dv.chars().all(|c| c.is_ascii_digit());
+    }
+
+    // Si no tiene guion, último carácter es el dígito verificador
+    if user.len() < min_rut_len + 1 || user.len() > max_rut_len + 1 {
+        return false;
+    }
+    let (num, dv) = user.split_at(user.len() - 1);
+    let dv = dv.to_ascii_lowercase();
     if !num.chars().all(|c| c.is_ascii_digit()) { return false; }
     if require_valid_dv {
         if let Some(calc_dv) = rut_dv(num) {
@@ -434,7 +481,7 @@ where
                             if keywords.iter().any(|kw| line.contains(kw)) {
                                 if let Some(extracted) = extract_line(&line, extract_after_colon) {
                                     if is_valid_credential(
-                                        &extracted,
+                                        &line,
                                         only_email,
                                         only_numeric,
                                         only_user,
