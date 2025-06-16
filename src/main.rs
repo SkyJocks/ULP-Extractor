@@ -3,7 +3,6 @@ use rfd::FileDialog;
 use std::collections::HashSet;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufRead, Write};
-use std::sync::{Arc, Mutex};
 use std::thread;
 use std::sync::mpsc;
 use egui::epaint::Rounding;
@@ -38,7 +37,6 @@ struct AppState {
     only_valid_rut: bool,
     min_rut_len: usize,
     max_rut_len: usize,
-    
 }
 
 impl Default for AppState {
@@ -193,11 +191,6 @@ impl eframe::App for AppState {
 
             ui.add(egui::Slider::new(&mut self.num_threads, 1..=num_cpus::get())
                 .text(lbl_threads));
-
-            ui.horizontal(|ui| {
-                ui.label("Separador (elige uno: : | ; )");
-                ui.text_edit_singleline(&mut self.separator);
-            });
 
             if ui.button(lbl_process).clicked() {
                 self.result.clear();
@@ -388,12 +381,12 @@ fn is_rut(
     // Si tiene guion, separar normalmente
     if let Some(idx) = user.find('-') {
         let (num, dv) = user.split_at(idx);
-        let dv = &dv[1..].to_ascii_lowercase();
+        let dv = dv[1..].to_ascii_lowercase(); // <-- CORREGIDO: dv es String
         if num.len() < min_rut_len || num.len() > max_rut_len { return false; }
         if !num.chars().all(|c| c.is_ascii_digit()) { return false; }
         if require_valid_dv {
             if let Some(calc_dv) = rut_dv(num) {
-                return dv == calc_dv.to_string();
+                return dv == calc_dv.to_string(); // <-- Ahora compara String == String
             } else {
                 return false;
             }
