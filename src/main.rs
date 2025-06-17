@@ -313,34 +313,18 @@ fn extract_line(line: &str, extract_after_colon: bool) -> Option<String> {
 }
 
 fn is_valid_credential(
-    line: &str,
+    user: &str,
     only_email: bool,
     only_numeric: bool,
     only_user: bool,
     only_rut: bool,
     only_valid_rut: bool,
     min_numeric_len: usize,
-    min_pass_len: usize,
     min_rut_len: usize,
     max_rut_len: usize,
 ) -> bool {
-    let sep = match detect_separator(line) {
-        Some(s) => s,
-        None => return false,
-    };
-    let parts: Vec<&str> = line.splitn(2, sep).collect();
-    if parts.len() < 2 {
-        return false;
-    }
-    let user = parts[0].trim();
-    let pass = parts[1].trim();
-    if user.is_empty() || pass.is_empty() {
-        return false;
-    }
     let is_email = user.contains('@') && user.contains('.');
-    let is_numeric = user.chars().all(|c| c.is_ascii_digit())
-        && user.len() >= min_numeric_len
-        && pass.len() >= min_pass_len;
+    let is_numeric = user.chars().all(|c| c.is_ascii_digit()) && user.len() >= min_numeric_len;
     let is_user = user.chars().all(|c| c.is_ascii_alphanumeric()) && !is_email && !is_numeric;
     let is_rut_user = is_rut(user, only_valid_rut, min_rut_len, max_rut_len);
 
@@ -455,14 +439,12 @@ where
         let tx = tx.clone();
         let keywords = keywords.to_owned();
         let chunk = chunk.to_owned();
-        let extract_after_colon = extract_after_colon;
         let only_email = only_email;
         let only_numeric = only_numeric;
         let only_user = only_user;
         let only_rut = only_rut;
         let only_valid_rut = only_valid_rut;
         let min_numeric_len = min_numeric_len;
-        let min_pass_len = min_pass_len;
         let min_rut_len = min_rut_len;
         let max_rut_len = max_rut_len;
         let handle = thread::spawn(move || {
@@ -472,20 +454,36 @@ where
                     for line in reader.lines() {
                         if let Ok(line) = line {
                             if keywords.iter().any(|kw| line.contains(kw)) {
-                                if let Some(extracted) = extract_line(&line, extract_after_colon) {
-                                    if is_valid_credential(
-                                        &line,
-                                        only_email,
-                                        only_numeric,
-                                        only_user,
-                                        only_rut,
-                                        only_valid_rut,
-                                        min_numeric_len,
-                                        min_pass_len,
-                                        min_rut_len,
-                                        max_rut_len,
-                                    ) {
-                                        tx.send(extracted).unwrap();
+                                // Divide por el primer separador
+                                if let Some(sep1) = detect_separator(&line) {
+                                    let mut parts1 = line.splitn(2, sep1);
+                                    let _url = parts1.next();
+                                    if let Some(rest) = parts1.next() {
+                                        // Divide el resto por el siguiente separador
+                                        if let Some(sep2) = detect_separator(rest) {
+                                            let mut parts2 = rest.splitn(2, sep2);
+                                            let user_raw = parts2.next().unwrap_or("").trim();
+                                            let pass = parts2.next().unwrap_or("").trim();
+                                            // Limpia puntos del usuario para validación y salida
+                                            let user = user_raw.replace('.', "");
+                                            if !user.is_empty() && !pass.is_empty() {
+                                                if is_valid_credential(
+                                                    &user,
+                                                    only_email,
+                                                    only_numeric,
+                                                    only_user,
+                                                    only_rut,
+                                                    only_valid_rut,
+                                                    min_numeric_len,
+                                                    min_rut_len,
+                                                    max_rut_len,
+                                                ) {
+                                                    // Siempre salida user:pass (sin puntos en el user)
+                                                    let extracted = format!("{}:{}", user, pass);
+                                                    tx.send(extracted).unwrap();
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
